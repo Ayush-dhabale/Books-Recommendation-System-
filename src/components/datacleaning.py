@@ -25,12 +25,23 @@ class DataIngestionConfig:
 ##Create a class for Data Ingestion
 class DataIngestion:
     def __init__(self):
-        #Create a variable which will store the paths to raw,trian,test data
+        """
+        Initializes the Data Ingestion process by setting up the configuration for storing 
+        raw, train, and test data paths.
+        """
         logging.info("Data Ingestion Configuration Starts")
         self.ingestion_config = DataIngestionConfig()
         logging.info("Data Ingestion Configuration completed")
         
     def initiate_data_ingestion(self):
+        """
+        Reads the required datasets (Books, Ratings, Users) from the given file paths 
+        and returns them as pandas DataFrames.
+        
+        Returns:
+            tuple: books_df, ratings_df, users_df (pandas DataFrames)
+        """
+        
         logging.info("Data Ingetion process starts")
         
         try:
@@ -48,6 +59,13 @@ class DataIngestion:
         
         
     def split_location(self):
+        """
+        Splits the 'Location' column in the Users dataset into 'City', 'State', and 'Country' 
+        and removes the original 'Location' column.
+        
+        Returns:
+            pandas DataFrame: Updated Users dataset with separate location features.
+        """
         
         logging.info("Spliting the Location feature of the user dataset")
         
@@ -57,6 +75,15 @@ class DataIngestion:
             
             # Function to extract City, State, and Country
             def extract_location(location):
+                """
+                Helper function to split the 'Location' column into 'City', 'State', and 'Country'.
+
+                Args:
+                    location (str): Location string containing comma-separated values.
+
+                Returns:
+                    pandas Series: Extracted City, State, and Country.
+                """
                 
                 logging.info("Spliting the location feature by ','")
                 parts = [part.strip() for part in str(location).split(',')]
@@ -96,6 +123,12 @@ class DataIngestion:
             raise CustomException(e,sys)
         
     def handle_nullvalues_booksdataset(self):
+        """
+        Handles missing values in the Books dataset by replacing NaN values with an empty string.
+
+        Returns:
+            pandas DataFrame: Books dataset with missing values handled.
+        """
         
         logging.info("Handling the nan values of booksdataset")
         
@@ -119,6 +152,16 @@ class DataIngestion:
             raise CustomException(e,sys)
         
     def remove_imageUrls(self,books_df):
+        """
+        Removes the image URL columns from the Books dataset to reduce unnecessary data.
+
+        Args:
+            books_df (pandas DataFrame): The Books dataset.
+
+        Returns:
+            pandas DataFrame: Updated Books dataset without image URL columns.
+        """
+        
         logging.info("Removing the image urls of the books dataset")
         
         try:
@@ -138,6 +181,16 @@ class DataIngestion:
         
         
     def clean_year_of_publication(self,books_df):
+        """
+        Cleans the 'Year-Of-Publication' feature by converting it to numeric, 
+        handling out-of-range values, and filling NaN values with the median year.
+
+        Args:
+            books_df (pandas DataFrame): The Books dataset.
+
+        Returns:
+            pandas DataFrame: Updated Books dataset with cleaned Year-Of-Publication.
+        """
         
         logging.info("Cleaning the year of publication feature of the books datasset")
         
@@ -167,6 +220,17 @@ class DataIngestion:
       
                 
     def megring_datasets(self,users_df,ratings_df,books_df):
+        """
+        Merges the Users, Ratings, and Books datasets into a single DataFrame.
+
+        Args:
+            users_df (pandas DataFrame): Users dataset.
+            ratings_df (pandas DataFrame): Ratings dataset.
+            books_df (pandas DataFrame): Books dataset.
+
+        Returns:
+            pandas DataFrame: Merged dataset.
+        """
          
         logging.inf("Merging the datasets")
         
@@ -187,6 +251,15 @@ class DataIngestion:
             raise CustomException(e,sys)
         
     def handling_age_nan_values(self,final_merged_df):
+        """
+        Handles missing and out-of-range values in the 'Age' feature using median imputation.
+
+        Args:
+            final_merged_df (pandas DataFrame): The merged dataset.
+
+        Returns:
+            pandas DataFrame: Updated dataset with cleaned 'Age' feature.
+        """
         
         logging.info("Handling the nan values of age feature")
         
@@ -197,10 +270,14 @@ class DataIngestion:
             
             # Compute median ages by book rating and publication year
             
+            logging.info("Grouping the Book-rating with meadian age")
             rating_medians = final_merged_df.groupby('Book-Rating')['Age'].median()
+            logging.info("Grouping the Year-Of-Publication with meadian age")
             year_medians = final_merged_df.groupby('Year-Of-Publication')['Age'].median()
+            logging.info("Defining the over_all median of age")
             overall_median = final_merged_df['Age'].median()
     
+            logging.info("Defining the function to impute the age")
             def impute_age(row):
                 if pd.notna(row['Age']):
                     return row['Age']
@@ -210,7 +287,7 @@ class DataIngestion:
                     return year_medians[row['Year-Of-Publication']]
                 else:
                     return overall_median
-
+            logging.info("Imputing the age feature")
             final_merged_df['Age'] = final_merged_df.apply(impute_age, axis=1)
             final_merged_df['Age'].fillna(overall_median, inplace=True)
 
@@ -221,3 +298,47 @@ class DataIngestion:
             logging.info("Error occured while handlin the nan values of age feature")
             raise CustomException(e,sys)
         
+    def save_cleaned_csv(self,df, index=False):
+        """
+        Saves the cleaned Data as a CSV file.
+    
+        """
+        logging.info("Saving the cleanded merged file")
+        
+        logging.info("Defining the file path")
+        
+        file_path = self.ingestion_config.cleaned_data_path
+        df.to_csv(file_path, index=index)
+        logging.info("Cleaned data saved successfully as cleaned_data")
+        
+        
+#Main
+if __name__ == "__main__":
+    logging.info("Creating a object og Dataingestion class")
+    obj = DataIngestion()
+    
+    logging.info("Reading the books,users,rarings dataset")
+    raw_books_df,raw_ratings_df,raw_users_df = obj.initiate_data_ingestion()
+    
+    logging.info("Splitting the location feature")
+    splitted_users_df = obj.split_location()
+    
+    logging.info("handling the nan values in the book dataset")
+    null_val_free_books_df = obj.handle_nullvalues_booksdataset()
+    
+    logging.info("Dropping some url features of books dataset")
+    url_dropped_books_df = obj.remove_imageUrls(books_df= null_val_free_books_df)
+    
+    logging.info("Cleaning the year of publication feature")
+    cleaned_year_of_publication_books_df = obj.clean_year_of_publication(books_df= url_dropped_books_df)
+    
+    logging.info("Merging the data sets")
+    merged_df = obj.megring_datasets(users_df= splitted_users_df,
+                                     ratings_df= raw_ratings_df,
+                                     books_df= cleaned_year_of_publication_books_df)
+    
+    logging.info("Handling the nan values of age feature")
+    cleaned_merged_df = obj.handling_age_nan_values(final_merged_df= merged_df)
+    
+    logging.info("Saving the cleaned and merged data file")
+    obj.save_cleaned_csv(df=cleaned_merged_df)
