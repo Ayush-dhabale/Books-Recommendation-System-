@@ -70,7 +70,7 @@ def run_app():
     with st.container():
         book_title = st.text_input(
             " ",
-            placeholder="Enter a book title you enjoy... (e.g., The Hobbit)",
+            placeholder="Enter a book title you enjoy... (e.g., The Notebook)",
             key="book_search"
         )
         st.markdown("<br>", unsafe_allow_html=True)
