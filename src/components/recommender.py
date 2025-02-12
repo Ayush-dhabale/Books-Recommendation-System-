@@ -1,7 +1,7 @@
 import sys
 from src.logger import logging
 from src.exception import CustomException
-from src.components.helper import Helper
+
 from src.utils import load_object
 
 # Create a class for the Book Recommendation System
@@ -18,26 +18,15 @@ class BookRecommendationSystem:
         logging.info("Book Recommendation System Initialization Started")
         
         try:
-            logging.info("Creating an instance of the Helper class")
-            self.helper_obj = Helper()
-            
-            logging.info("Filtering data and saving as a pickle file")
-            self.helper_obj.filter_data()
-            
+
             logging.info("Loading the filtered dataset")
-            self.books_dataset = load_object(file_path=self.helper_obj.helper_config.final_filtered_data_path)
-            
-            logging.info("Creating a pivot table and saving as a pickle file")
-            self.helper_obj.pivot_table_data(filtered_data=self.books_dataset)
+            self.books_dataset = load_object(file_path='artifacts/final_filtered_data.pkl')
             
             logging.info("Loading the pivot table index (Book Titles)")
-            self.books_titles = load_object(file_path=self.helper_obj.helper_config.users_books_pivot_table_path).index
-            
-            logging.info("Computing similarity scores and saving as a pickle file")
-            self.helper_obj.similarity_score(pivot_table=self.books_titles)
+            self.books_titles = load_object(file_path= 'artifacts/users_books_pt.pkl')
             
             logging.info("Loading the similarity matrix")
-            self.similarity_matrix = load_object(file_path=self.helper_obj.helper_config.similarity_scores_path)
+            self.similarity_matrix = load_object(file_path='artifacts/similarity_scores.pkl')
             
             logging.info("Book Recommendation System Initialization Completed Successfully")
         
@@ -59,12 +48,12 @@ class BookRecommendationSystem:
         try:
             logging.info(f"Fetching top {top_n} recommendations for: {book_title}")
             
-            if book_title not in self.books_titles:
+            if book_title not in self.books_titles.index:
                 logging.warning("Book not found in the dataset")
                 return [{"message": "Book not found in dataset"}]
 
             logging.info("Extracting the index of the entered book title")
-            book_idx = self.books_titles.get_loc(book_title)
+            book_idx = self.books_titles.index.get_loc(book_title)
             
             logging.info("Computing similarity scores")
             similarity_scores = list(enumerate(self.similarity_matrix[book_idx]))
@@ -76,7 +65,7 @@ class BookRecommendationSystem:
             logging.info("Extracting the top recommended books")
             
             for i, _ in similarity_scores[1:top_n + 1]:
-                book_info = self.books_dataset[self.books_dataset['Book-Title'] == self.books_titles[i]].iloc[0]
+                book_info = self.books_dataset[self.books_dataset['Book-Title'] == self.books_titles.index[i]].iloc[0]
                 
                 top_recommendations.append({
                     "Title": book_info["Book-Title"],

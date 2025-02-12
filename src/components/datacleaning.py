@@ -47,9 +47,9 @@ class DataIngestion:
         try:
             
             logging.info("Readin the datasets")
-            books_df = pd.read_csv('notebook/data/Books.csv', encoding='ISO-8859-1')
-            ratings_df = pd.read_csv('notebook/data/Ratings.csv', encoding='ISO-8859-1')
-            users_df = pd.read_csv('notebook/data/Users.csv', encoding='ISO-8859-1')
+            books_df = pd.read_csv('notebooks/data/Books.csv', encoding='ISO-8859-1')
+            ratings_df = pd.read_csv('notebooks/data/Ratings.csv', encoding='ISO-8859-1')
+            users_df = pd.read_csv('notebooks/data/Users.csv', encoding='ISO-8859-1')
             
             return books_df,ratings_df,users_df
         
@@ -58,7 +58,7 @@ class DataIngestion:
             raise CustomException(e,sys)
         
         
-    def split_location(self):
+    def split_location(self,users_df):
         """
         Splits the 'Location' column in the Users dataset into 'City', 'State', and 'Country' 
         and removes the original 'Location' column.
@@ -70,8 +70,7 @@ class DataIngestion:
         logging.info("Spliting the Location feature of the user dataset")
         
         try:
-            logging.info("Reading the user dataset")
-            _,__,user_df = self.initiate_data_ingestion()
+
             
             # Function to extract City, State, and Country
             def extract_location(location):
@@ -108,21 +107,21 @@ class DataIngestion:
                 return pd.Series([city, state, country])
             
             logging.info("Calling the function to split the location feature")
-            user_df[['City', 'State', 'Country']] = user_df['Location'].apply(extract_location)
+            users_df[['City', 'State', 'Country']] = users_df['Location'].apply(extract_location)
             logging.info("Splited the location feature")
             
             #Now the location feature in the user dataset is no longer required , so just remove it
             
-            user_df.drop('Location',axis= 1, inplace= True)
+            users_df.drop('Location',axis= 1, inplace= True)
             logging.info("Droped the Location feature")
             
-            return user_df
+            return users_df
         
         except Exception as e:
             logging.info("Error occured during spliting the location dataset")
             raise CustomException(e,sys)
         
-    def handle_nullvalues_booksdataset(self):
+    def handle_nullvalues_booksdataset(self,books_df):
         """
         Handles missing values in the Books dataset by replacing NaN values with an empty string.
 
@@ -134,18 +133,15 @@ class DataIngestion:
         
         try:
             
-            logging.info("Reading the book dataset")
-            
-            book_df , _, __ = self.initiate_data_ingestion()
             
             logging.info("Extracting the null features")
-            null_features = [feature for feature in book_df.columns if book_df[feature].isnull().sum() >= 1]
+            null_features = [feature for feature in books_df.columns if books_df[feature].isnull().sum() >= 1]
             
             #Out of 2.7 lakh records only 2,3 values are missing in the features, so we will just replace them by empty string
             for feature in null_features:
-                book_df[feature].fillna(value= "", inplace= True)
+                books_df[feature].fillna(value= "", inplace= True)
                 
-            return book_df
+            return books_df
             
         except Exception as e:
             logging.info("Error occured while handling the nan values of the book dataset")
@@ -173,7 +169,7 @@ class DataIngestion:
             logging.info("Dropping the image urls")
             books_df.drop(columns= columns_to_drop, inplace=True)
             
-            return self.books_df
+            return books_df
             
         except Exception as e:
             logging.info("Error ocurred during the removal of the image urls")
@@ -232,7 +228,7 @@ class DataIngestion:
             pandas DataFrame: Merged dataset.
         """
          
-        logging.inf("Merging the datasets")
+        logging.info("Merging the datasets")
         
         try:
             logging.info("Merging rating ad book datasets")
@@ -300,45 +296,28 @@ class DataIngestion:
         
     def save_cleaned_csv(self,df, index=False):
         """
-        Saves the cleaned Data as a CSV file.
-    
+        Saves a Pandas DataFrame as a CSV file.
+
+        Parameters:
+        file_path (str): The path where the CSV file should be saved.
+        df (pd.DataFrame): The DataFrame to be saved.
+
+        Raises:
+        CustomException: If any error occurs during the saving process.
         """
-        logging.info("Saving the cleanded merged file")
-        
-        logging.info("Defining the file path")
-        
-        file_path = self.ingestion_config.cleaned_data_path
-        df.to_csv(file_path, index=index)
-        logging.info("Cleaned data saved successfully as cleaned_data")
-        
-        
-#Main
-if __name__ == "__main__":
-    logging.info("Creating a object og Dataingestion class")
-    obj = DataIngestion()
-    
-    logging.info("Reading the books,users,rarings dataset")
-    raw_books_df,raw_ratings_df,raw_users_df = obj.initiate_data_ingestion()
-    
-    logging.info("Splitting the location feature")
-    splitted_users_df = obj.split_location()
-    
-    logging.info("handling the nan values in the book dataset")
-    null_val_free_books_df = obj.handle_nullvalues_booksdataset()
-    
-    logging.info("Dropping some url features of books dataset")
-    url_dropped_books_df = obj.remove_imageUrls(books_df= null_val_free_books_df)
-    
-    logging.info("Cleaning the year of publication feature")
-    cleaned_year_of_publication_books_df = obj.clean_year_of_publication(books_df= url_dropped_books_df)
-    
-    logging.info("Merging the data sets")
-    merged_df = obj.megring_datasets(users_df= splitted_users_df,
-                                     ratings_df= raw_ratings_df,
-                                     books_df= cleaned_year_of_publication_books_df)
-    
-    logging.info("Handling the nan values of age feature")
-    cleaned_merged_df = obj.handling_age_nan_values(final_merged_df= merged_df)
-    
-    logging.info("Saving the cleaned and merged data file")
-    obj.save_cleaned_csv(df=cleaned_merged_df)
+        try:
+            file_path = self.ingestion_config.cleaned_data_path
+            logging.info(f"Saving DataFrame to {file_path}")
+
+            # Extract directory path and create it if it doesn't exist
+            dir_path = os.path.dirname(file_path)
+            os.makedirs(dir_path, exist_ok=True)
+
+            # Save the DataFrame as CSV
+            df.to_csv(file_path, index=False, encoding="utf-8")
+
+            logging.info(f"DataFrame successfully saved to {file_path}")
+
+        except Exception as e:
+            logging.error(f"Error while saving the DataFrame to {file_path}")
+            raise CustomException(e, sys)
