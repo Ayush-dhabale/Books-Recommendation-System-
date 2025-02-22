@@ -5,4 +5,5 @@ matplotlib
 scipy
 scikit-learn
 streamlit
--e .
+surprise
+implicit
