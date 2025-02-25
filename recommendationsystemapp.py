@@ -108,7 +108,7 @@ def run_app():
     # Input section with aligned button
     col1, col2 = st.columns([4, 1])
     with col1:
-        user_id = st.text_input("Enter your User ID", placeholder="e.g., 123456")
+        user_id = st.text_input("Enter your User ID", placeholder="e.g., 6563")
     with col2:
         st.markdown("<div style='height: 100%; display: flex; align-items: center; justify-content: center;'>", unsafe_allow_html=True)
         recommend_button = st.button("🌟 Get My Recommendations")
