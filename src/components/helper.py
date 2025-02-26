@@ -9,6 +9,10 @@ from src.exception import CustomException
 from src.utils import save_object
 from dataclasses import dataclass
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.neighbors import NearestNeighbors
+from scipy.sparse import csr_matrix
+from surprise import Dataset, Reader, SVD
+from surprise.model_selection import train_test_split
 
 
 @dataclass  # Decorator
@@ -23,10 +27,12 @@ class HelperConfig:
     """
     
     final_filtered_data_path = os.path.join('artifacts', 'final_filtered_data.pkl')
-    users_books_pivot_table_path = os.path.join('artifacts', 'users_books_pt.pkl')
+    users_item_matrix_path = os.path.join('artifacts', 'users_books_pt.pkl')
     similarity_scores_path = os.path.join('artifacts', 'similarity_scores.pkl')
-
-
+    knn_model_path = os.path.join('artifacts', 'knn_model.pkl')
+    svd_model_path = os.path.join('artifacts', 'svd_model.pkl')
+    book_pivot_path = os.path.join('artifacts', 'book_pivot.pkl')
+    
 # Create a helper class
 class Helper:
     
@@ -93,19 +99,19 @@ class Helper:
 
         try:
             # Creating pivot table
-            user_book_pt = filtered_data.pivot_table(index='Book-Title', columns='User-ID', values='Book-Rating')
+            user_item_matrix = filtered_data.pivot_table(index='Book-Title', columns='User-ID', values='Book-Rating')
 
-            logging.info(f"Pivot table shape before filling NaNs: {user_book_pt.shape}")
+            logging.info(f"Pivot table shape before filling NaNs: {user_item_matrix.shape}")
 
             # Filling missing values with 0
             logging.info("Filling missing values with 0")
-            user_book_pt.fillna(value=0, inplace=True)
+            user_item_matrix.fillna(value=0, inplace=True)
 
-            logging.info(f"Pivot table shape after filling NaNs: {user_book_pt.shape}")
+            logging.info(f"Pivot table shape after filling NaNs: {user_item_matrix.shape}")
 
             # Saving the pivot table
             logging.info("Saving the pivot table data as a pickle file")
-            save_object(file_path=self.helper_config.users_books_pivot_table_path, object=user_book_pt)
+            save_object(file_path=self.helper_config.users_item_matrix_path, object=user_item_matrix)
             logging.info("Pivot table saved successfully")
 
         except Exception as e:
@@ -140,3 +146,64 @@ class Helper:
         except Exception as e:
             logging.error("Error occurred while calculating similarity score")
             raise CustomException(e, sys)
+
+    def knn_model(self,final_filtered_data):
+        logging.info("Training and saving the knn model")
+        
+        try:
+            logging.info("Creating a book_pivot")
+            book_pivot = final_filtered_data.pivot_table(index='ISBN', columns='User-ID', values='Book-Rating').fillna(0)
+            
+            #Saving the book_pivot a pickel file
+            logging.info("Saving the book pivot file")
+            save_object(file_path= self.helper_config.book_pivot_path, object= book_pivot)
+            logging.info("Saved the book_pivot as pickle file")
+            
+            logging.info("Initializing the knn model")
+            knn_model = NearestNeighbors(metric="cosine", algorithm="brute", n_neighbors=5, n_jobs=-1)
+            
+            logging.info("Training the knn model")
+            knn_model.fit(book_pivot.values)
+            
+            #Saving the knn model as pickle file
+            logging.info("Saving the knn model")
+            save_object(file_path= self.helper_config.knn_model_path,object= knn_model)
+            logging.info("KNN model saved successfully")
+            
+        except Exception as e:
+            logging.info("Error occured while training and saving the knn model")
+            raise CustomException(e,sys)
+        
+    def svd_model(self,final_filtered_data):
+        logging.info("Training and saving the svd model")
+        
+        try:
+            #Convert data to Surprise format
+            logging.info("Converting the data into the format what svd accepts")
+            reader = Reader(rating_scale=(0, 10))
+            data = Dataset.load_from_df(final_filtered_data[["User-ID", "Book-Title", "Book-Rating"]], reader)
+            
+            # Train-test split
+            logging.info("Train test split of the data")
+            trainset, testset = train_test_split(data, test_size=0.2)
+            
+            #Best parameters
+            logging.info("Definging the best parameters")
+            best_params = {'n_factors': 100, 
+               'n_epochs': 10, 
+               'lr_all': 0.005, 
+               'reg_all': 0.2}
+            
+            #Training the model
+            logging.info("Trainig the best svd model")
+            best_model = SVD(**best_params)
+            best_model.fit(trainset)
+            
+            #Saving the knn model as pickle file
+            logging.info("Saving the svd model")
+            save_object(file_path= self.helper_config.svd_model_path,object= best_model)
+            logging.info("svd model saved successfully")
+            
+        except Exception as e:
+            logging.info("Error occured while training and saving the svd model")
+            raise CustomException(e,sys)
